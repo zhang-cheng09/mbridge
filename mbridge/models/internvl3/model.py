@@ -175,5 +175,6 @@ class InternVLModel(MegatronModule):
         image_token_index: int = -1,
         **kwargs,
     ) -> torch.Tensor:
+
         vision_embeds = self.vision_model(images)
-        return vision_model
+        return vision_embeds
