@@ -175,56 +175,5 @@ class InternVLModel(MegatronModule):
         image_token_index: int = -1,
         **kwargs,
     ) -> torch.Tensor:
-        use_inference_kv_cache = (
-            inference_params is not None
-            and "image_tokens_count" in inference_params.key_value_memory_dict
-        )
-        if use_inference_kv_cache:
-            raise NotImplementedError()
-
-        if self.pre_process:
-            if images is None:
-                vision_embeds = None
-            else:
-                vision_embeds = self.vision_model(images)
-                vision_embeds = self.vision_projection(vision_embeds)
-                vision_embeds = vision_embeds.transpose(0, 1).contiguous()
-
-            language_embeddings: torch.Tensor = self.language_model.embedding(
-                input_ids=input_ids, position_ids=None  # NOTE: disable
-            ).clone()  # [text_seq_len, b, h_language]
-
-            if vision_embeds is not None:
-                language_embeddings = language_embeddings.transpose(0, 1).contiguous()
-                B, N, C = language_embeddings.shape
-                language_embeddings = language_embeddings.reshape(B * N, C)
-
-                input_ids = input_ids.reshape(B * N)
-                selected = input_ids == image_token_index
-                assert selected.sum() != 0
-                language_embeddings[selected] = vision_embeds.reshape(-1, C).to(
-                    language_embeddings.device
-                )
-
-                language_embeddings = language_embeddings.reshape(B, N, C)
-                language_embeddings = language_embeddings.transpose(0, 1).contiguous()
-        else:
-            language_embeddings = None
-
-        if self.config.sequence_parallel and self.pre_process:
-            language_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(
-                language_embeddings
-            )  # [S/TP,B,H]
-
-        output = self.language_model(
-            input_ids=None,
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-            decoder_input=language_embeddings,
-            labels=labels,
-            inference_params=inference_params,
-            packed_seq_params=packed_seq_params,
-            **kwargs,
-        )
-
-        return output
+        vision_embeds = self.vision_model(images)
+        return vision_model
